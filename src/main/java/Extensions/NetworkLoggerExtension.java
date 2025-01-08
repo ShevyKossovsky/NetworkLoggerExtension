@@ -1,13 +1,18 @@
 package Extensions;
 
 import Driver.DriverStoreManager;
+import io.github.bonigarcia.wdm.WebDriverManager;
 import org.junit.jupiter.api.extension.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.devtools.DevTools;
-import org.openqa.selenium.devtools.v85.network.Network;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.openqa.selenium.devtools.v131.network.Network;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
@@ -16,18 +21,18 @@ import java.util.List;
  * This extension enables the logging of network requests and responses during
  * the execution of Selenium WebDriver tests. It integrates with the DevTools
  * protocol to intercept network activity (requests and responses) and logs
- * relevant information to the console for further analysis.
- * <p>
- * The extension will create a new ChromeDriver instance before each test execution,
- * capture network activity, and ensure that the logs are printed after each test
- * execution. In case of any test execution exceptions, the extension will log the
- * intercepted network data before the exception is thrown.
+ * relevant information to a dedicated log file for further analysis.
+ *
+ * The extension will:
+ * - Initialize a new ChromeDriver instance before each test.
+ * - Intercept network activity using DevTools.
+ * - Log the intercepted network data to a file named with the test's name,
+ *   date, and time in a dedicated "logs" directory.
  */
 public class NetworkLoggerExtension implements BeforeEachCallback, AfterEachCallback, TestExecutionExceptionHandler {
 
     private ChromeDriver driver;
     private final List<String> networkLogs = new CopyOnWriteArrayList<>();
-    private static final Logger logger = LoggerFactory.getLogger(NetworkLoggerExtension.class);
 
     /**
      * This method is executed before each test, initializing the ChromeDriver,
@@ -39,6 +44,7 @@ public class NetworkLoggerExtension implements BeforeEachCallback, AfterEachCall
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
         driver = new ChromeDriver();
+        WebDriverManager.chromedriver().setup();
         DriverStoreManager.setCurrentDriver(driver);
 
         if (driver == null) {
@@ -71,13 +77,14 @@ public class NetworkLoggerExtension implements BeforeEachCallback, AfterEachCall
 
     /**
      * This method is executed after each test, ensuring that the WebDriver is quit
-     * after the test execution, regardless of whether the test passes or fails.
+     * after the test execution, and that network logs are saved to a file.
      *
      * @param context The context of the test execution.
      * @throws Exception if there is an error while quitting the WebDriver.
      */
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
+        saveNetworkLogs(context);
         if (driver != null) {
             driver.quit();
         }
@@ -87,13 +94,13 @@ public class NetworkLoggerExtension implements BeforeEachCallback, AfterEachCall
      * Handles any test execution exceptions, logs intercepted network data,
      * and ensures that the WebDriver is quit before the exception is thrown.
      *
-     * @param context The context of the test execution.
+     * @param context   The context of the test execution.
      * @param throwable The throwable exception that occurred during test execution.
      * @throws Throwable rethrows the exception after logging network data.
      */
     @Override
     public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
-        logNetwork();
+        saveNetworkLogs(context);
         if (driver != null) {
             driver.quit();
         }
@@ -101,15 +108,37 @@ public class NetworkLoggerExtension implements BeforeEachCallback, AfterEachCall
     }
 
     /**
-     * Logs the captured network activity (requests and responses) to the console.
-     * If no network activity was captured, it logs a message indicating that.
-     * Method for private use only.
+     * Saves the captured network activity (requests and responses) to a log file.
+     * The log file is created in a "logs" directory with a name that includes
+     * the test's name, date, and time.
+     *
+     * @param context The context of the test execution, used to retrieve the test name.
      */
-    private void logNetwork() {
-        if (!networkLogs.isEmpty()) {
-            networkLogs.forEach(logger::info);
-        } else {
-            logger.info("No network requests were intercepted.");
+    private void saveNetworkLogs(ExtensionContext context) {
+        String testName = context.getTestMethod().map(method -> method.getName()).orElse("unknown-test");
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+        String logFileName = String.format("%s_%s.log", testName, timestamp);
+        File logDirectory = new File("logs");
+
+        // Ensure the "logs" directory exists
+        if (!logDirectory.exists()) {
+            logDirectory.mkdirs();
+        }
+
+        // Write logs to the file
+        File logFile = new File(logDirectory, logFileName);
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
+            if (!networkLogs.isEmpty()) {
+                for (String logEntry : networkLogs) {
+                    writer.write(logEntry);
+                    writer.newLine();
+                }
+            } else {
+                writer.write("No network requests were intercepted.");
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to write network logs to file: " + e.getMessage());
         }
     }
 }

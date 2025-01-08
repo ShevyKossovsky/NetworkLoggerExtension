@@ -8,6 +8,7 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(NetworkLoggerExtension.class)
 public class GoogleSearchTest {
@@ -25,8 +26,8 @@ public class GoogleSearchTest {
         WebElement search=driver.findElement(By.name("q"));
         search.sendKeys("Selenium");
         search.submit();
-        Thread.sleep(5000);
-        assertFalse(driver.getCurrentUrl().contains("Testing"),
+        //Make the test being failed
+        assertTrue(driver.getCurrentUrl().contains("Selenium"),
                 "URL does not contain the expected text.");
     }
 
