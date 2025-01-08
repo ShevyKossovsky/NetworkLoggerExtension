@@ -1,6 +1,6 @@
 # Network Logger Extension for Selenium WebDriver
 
-This project provides an extension for logging network requests and responses during the execution of Selenium WebDriver tests. The extension integrates with the Chrome DevTools protocol to intercept network activity (requests and responses), and saves the logs to individual files for further analysis.
+This project provides an extension for logging network requests and responses during the execution of Selenium Chrome Driver tests. The extension integrates with the Chrome DevTools protocol to intercept network activity (requests and responses), and saves the logs to individual files for further analysis.
 
 The extension ensures that network data is captured for each test execution and that the logs are written to a dedicated directory. In the event of an exception during test execution, the captured network data is also logged before the exception is thrown.
 
